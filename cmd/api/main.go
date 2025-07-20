@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log/slog"
-	"net"
 	"os"
 )
 
@@ -33,8 +32,6 @@ func main() {
 		logger: logger,
 		config: conf,
 	}
-
-	logger.Info("server listening", "addr", net.JoinHostPort(conf.host, conf.port))
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
