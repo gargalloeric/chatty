@@ -4,9 +4,7 @@ import (
 	"flag"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
-	"time"
 )
 
 type config struct {
@@ -36,18 +34,9 @@ func main() {
 		config: conf,
 	}
 
-	server := &http.Server{
-		Addr:         net.JoinHostPort(conf.host, conf.port),
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		ErrorLog:     slog.NewLogLogger(app.logger.Handler(), slog.LevelError),
-	}
-
 	logger.Info("server listening", "addr", net.JoinHostPort(conf.host, conf.port))
 
-	if err := server.ListenAndServe(); err != nil {
+	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
