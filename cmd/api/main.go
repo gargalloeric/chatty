@@ -4,6 +4,8 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+
+	ws "github.com/gorilla/websocket"
 )
 
 type config struct {
@@ -13,8 +15,10 @@ type config struct {
 }
 
 type application struct {
-	logger *slog.Logger
-	config config
+	logger   *slog.Logger
+	config   config
+	upgrader ws.Upgrader
+	hub      *Hub
 }
 
 func main() {
@@ -27,11 +31,19 @@ func main() {
 	flag.Parse()
 
 	logger := slog.Default()
+	upgrader := ws.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
 
 	app := &application{
-		logger: logger,
-		config: conf,
+		logger:   logger,
+		config:   conf,
+		upgrader: upgrader,
+		hub:      newHub(),
 	}
+
+	go app.hub.run()
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
