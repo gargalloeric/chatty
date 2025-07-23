@@ -5,7 +5,8 @@ import (
 	"log/slog"
 	"os"
 
-	ws "github.com/gorilla/websocket"
+	"github.com/gargalloeric/chatty/internal/chat"
+	"github.com/gorilla/websocket"
 )
 
 type config struct {
@@ -17,8 +18,8 @@ type config struct {
 type application struct {
 	logger   *slog.Logger
 	config   config
-	upgrader ws.Upgrader
-	hub      *Hub
+	upgrader websocket.Upgrader
+	hub      *chat.Hub
 }
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	logger := slog.Default()
-	upgrader := ws.Upgrader{
+	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
@@ -40,10 +41,10 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		hub:      newHub(),
+		hub:      chat.NewHub(),
 	}
 
-	go app.hub.run()
+	go app.hub.Run()
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
