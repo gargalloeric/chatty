@@ -29,14 +29,14 @@ var (
 type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
-	send chan []byte
+	send chan *Message
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn) *Client {
 	return &Client{
 		hub:  hub,
 		conn: conn,
-		send: make(chan []byte),
+		send: make(chan *Message),
 	}
 }
 
@@ -54,7 +54,7 @@ func (c *Client) Read() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.hub.Broadcast <- message
+		c.hub.Broadcast <- &Message{Sender: c.conn.RemoteAddr(), Data: message}
 	}
 }
 
@@ -79,12 +79,14 @@ func (c *Client) Write() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			w.Write(message.Data)
 
 			// Add queued messages to the current websocket message
 			for i := 0; i < len(c.send); i++ {
 				w.Write(newline)
-				w.Write(<-c.send)
+
+				message := <-c.send
+				w.Write(message.Data)
 			}
 
 			if err := w.Close(); err != nil {
