@@ -36,12 +36,14 @@ func (h *Hub) Run() {
 		// If we recieve a message, we have to send the message to every connected client
 		case message := <-h.Broadcast:
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				// If we cannot send the message, we assumed that the client is dead or stuck
-				default:
-					close(client.send)
-					delete(h.clients, client)
+				if message.Sender != client.conn.RemoteAddr() {
+					select {
+					case client.send <- message:
+					// If we cannot send the message, we assumed that the client is dead or stuck
+					default:
+						close(client.send)
+						delete(h.clients, client)
+					}
 				}
 			}
 
