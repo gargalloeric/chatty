@@ -12,8 +12,8 @@ func (app *application) chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := chat.NewClient(app.hub, conn)
-	app.hub.Register <- client
+	client := chat.NewClient(app.room, conn)
+	app.room.Register <- client
 
 	go client.Read()
 	go client.Write()
