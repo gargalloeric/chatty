@@ -9,7 +9,6 @@ import (
 func (app *application) chatHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := app.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
 		return
 	}
 
