@@ -19,7 +19,7 @@ type application struct {
 	logger   *slog.Logger
 	config   config
 	upgrader websocket.Upgrader
-	hub      *chat.Hub
+	room     *chat.Room
 }
 
 func main() {
@@ -41,10 +41,10 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		hub:      chat.NewHub(),
+		room:     chat.NewRoom(),
 	}
 
-	go app.hub.Run()
+	go app.room.Run()
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())

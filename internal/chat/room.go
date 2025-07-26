@@ -1,21 +1,21 @@
 package chat
 
-type Hub struct {
+type Room struct {
 	// Map as a set of connected clients
 	clients map[*Client]struct{}
 
 	// Messages from the clients to be broadcasted
 	Broadcast chan *Message
 
-	// Clients joining the hub
+	// Clients joining the room
 	Register chan *Client
 
-	// Clients leaving the hub
+	// Clients leaving the rooom
 	Unregister chan *Client
 }
 
-func NewHub() *Hub {
-	return &Hub{
+func NewRoom() *Room {
+	return &Room{
 		clients:    make(map[*Client]struct{}),
 		Broadcast:  make(chan *Message),
 		Register:   make(chan *Client),
@@ -23,7 +23,7 @@ func NewHub() *Hub {
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Room) Run() {
 	for {
 		select {
 		case client := <-h.Register:
