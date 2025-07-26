@@ -27,12 +27,12 @@ var (
 )
 
 type Client struct {
-	hub  *Hub
+	hub  *Room
 	conn *websocket.Conn
 	send chan *Message
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn) *Client {
+func NewClient(hub *Room, conn *websocket.Conn) *Client {
 	return &Client{
 		hub:  hub,
 		conn: conn,

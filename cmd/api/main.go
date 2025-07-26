@@ -19,7 +19,7 @@ type application struct {
 	logger   *slog.Logger
 	config   config
 	upgrader websocket.Upgrader
-	hub      *chat.Hub
+	hub      *chat.Room
 }
 
 func main() {
@@ -41,7 +41,7 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		hub:      chat.NewHub(),
+		hub:      chat.NewRoom(),
 	}
 
 	go app.hub.Run()
