@@ -11,5 +11,7 @@ func (app *application) routes() http.Handler {
 
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
 
+	mux.Get("/v1/ws", app.chatHandler)
+
 	return mux
 }
