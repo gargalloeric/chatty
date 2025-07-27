@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
-	"net/http"
 	"os"
 	"sync"
 
@@ -38,14 +38,13 @@ func main() {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
 	app := &application{
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		room:     chat.NewRoom(),
+		room:     chat.NewRoom(context.Background()),
 	}
 
 	app.background(func() {
