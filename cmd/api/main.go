@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"log/slog"
+	"net/http"
 	"os"
+	"sync"
 
 	"github.com/gargalloeric/chatty/internal/chat"
 	"github.com/gorilla/websocket"
@@ -20,6 +22,7 @@ type application struct {
 	config   config
 	upgrader websocket.Upgrader
 	room     *chat.Room
+	wg       sync.WaitGroup
 }
 
 func main() {
@@ -35,6 +38,7 @@ func main() {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
 	app := &application{
@@ -44,7 +48,9 @@ func main() {
 		room:     chat.NewRoom(),
 	}
 
-	go app.room.Run()
+	app.background(func() {
+		app.room.Run()
+	})
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
