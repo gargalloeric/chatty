@@ -1,5 +1,7 @@
 package chat
 
+import "context"
+
 type Room struct {
 	// Map as a set of connected clients
 	clients map[*Client]struct{}
@@ -12,20 +14,34 @@ type Room struct {
 
 	// Clients leaving the rooom
 	Unregister chan *Client
+
+	ctx      context.Context
+	Shutdown context.CancelFunc
 }
 
-func NewRoom() *Room {
+func NewRoom(ctx context.Context) *Room {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Room{
 		clients:    make(map[*Client]struct{}),
 		Broadcast:  make(chan *Message),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
+		ctx:        ctx,
+		Shutdown:   cancel,
 	}
 }
 
 func (h *Room) Run() {
 	for {
 		select {
+		case <-h.ctx.Done():
+			// Gracefull shutdown triggered, disconnect all clients
+			for client := range h.clients {
+				client.send <- &Message{Sender: client.conn.RemoteAddr(), Data: []byte("Closing server...")}
+				close(client.send)
+				delete(h.clients, client)
+			}
+			return
 		case client := <-h.Register:
 			h.clients[client] = struct{}{}
 		case client := <-h.Unregister:

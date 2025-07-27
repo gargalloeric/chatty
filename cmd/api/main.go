@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/gargalloeric/chatty/internal/chat"
 	"github.com/gorilla/websocket"
@@ -20,6 +22,7 @@ type application struct {
 	config   config
 	upgrader websocket.Upgrader
 	room     *chat.Room
+	wg       sync.WaitGroup
 }
 
 func main() {
@@ -41,10 +44,12 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		room:     chat.NewRoom(),
+		room:     chat.NewRoom(context.Background()),
 	}
 
-	go app.room.Run()
+	app.background(func() {
+		app.room.Run()
+	})
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())

@@ -34,6 +34,8 @@ func (app *application) serve() error {
 
 		app.logger.Info("shutting down server", "signal", s.String())
 
+		app.room.Shutdown()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -41,6 +43,7 @@ func (app *application) serve() error {
 			shutdownErrors <- err
 		}
 
+		app.wg.Wait()
 		shutdownErrors <- nil
 	}()
 
