@@ -9,6 +9,9 @@ import (
 func (app *application) routes() http.Handler {
 	mux := chi.NewRouter()
 
+	mux.NotFound(app.notFoundResponse)
+	mux.MethodNotAllowed(app.methodNotAllowedResponse)
+
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
 
 	mux.Get("/v1/ws", app.chatHandler)
