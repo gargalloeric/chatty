@@ -15,7 +15,9 @@ type Room struct {
 	// Clients leaving the rooom
 	Unregister chan *Client
 
-	ctx      context.Context
+	ctx context.Context
+
+	// Close the room and disconnect all clients
 	Shutdown context.CancelFunc
 }
 
@@ -35,9 +37,8 @@ func (h *Room) Run() {
 	for {
 		select {
 		case <-h.ctx.Done():
-			// Gracefull shutdown triggered, disconnect all clients
+			// Gracefully shutdown triggered, disconnect all clients
 			for client := range h.clients {
-				client.send <- &Message{Sender: client.conn.RemoteAddr(), Data: []byte("Closing server...")}
 				close(client.send)
 				delete(h.clients, client)
 			}
