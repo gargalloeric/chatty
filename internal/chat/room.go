@@ -23,7 +23,7 @@ type Room struct {
 	ctx context.Context
 
 	// Close the room and disconnect all clients
-	Shutdown context.CancelFunc
+	cancel context.CancelFunc
 }
 
 func NewRoom(ctx context.Context, logger *slog.Logger) *Room {
@@ -35,42 +35,46 @@ func NewRoom(ctx context.Context, logger *slog.Logger) *Room {
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		ctx:        ctx,
-		Shutdown:   cancel,
+		cancel:     cancel,
 	}
 }
 
-func (h *Room) Run() {
+func (r *Room) Run() {
 	for {
 		select {
-		case <-h.ctx.Done():
+		case <-r.ctx.Done():
 			// Gracefully shutdown triggered, disconnect all clients
-			h.logger.Info("shutdown signal triggered, closing room")
-			for client := range h.clients {
+			r.logger.Info("shutdown signal triggered, closing room")
+			for client := range r.clients {
 				close(client.send)
-				delete(h.clients, client)
+				delete(r.clients, client)
 			}
 			return
-		case client := <-h.Register:
-			h.clients[client] = struct{}{}
-		case client := <-h.Unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+		case client := <-r.Register:
+			r.clients[client] = struct{}{}
+		case client := <-r.Unregister:
+			if _, ok := r.clients[client]; ok {
+				delete(r.clients, client)
 				close(client.send)
 			}
 		// If we recieve a message, we have to send the message to every connected client
-		case message := <-h.Broadcast:
-			for client := range h.clients {
+		case message := <-r.Broadcast:
+			for client := range r.clients {
 				if message.Sender != client.conn.RemoteAddr() {
 					select {
 					case client.send <- message:
 					// If we cannot send the message, we assumed that the client is dead or stuck
 					default:
 						close(client.send)
-						delete(h.clients, client)
+						delete(r.clients, client)
 					}
 				}
 			}
 
 		}
 	}
+}
+
+func (r *Room) Shutdown() {
+	r.cancel()
 }
