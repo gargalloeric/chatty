@@ -1,8 +1,13 @@
 package chat
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
 
 type Room struct {
+	logger *slog.Logger
+
 	// Map as a set of connected clients
 	clients map[*Client]struct{}
 
@@ -21,9 +26,10 @@ type Room struct {
 	Shutdown context.CancelFunc
 }
 
-func NewRoom(ctx context.Context) *Room {
+func NewRoom(ctx context.Context, logger *slog.Logger) *Room {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Room{
+		logger:     logger,
 		clients:    make(map[*Client]struct{}),
 		Broadcast:  make(chan *Message),
 		Register:   make(chan *Client),
@@ -38,6 +44,7 @@ func (h *Room) Run() {
 		select {
 		case <-h.ctx.Done():
 			// Gracefully shutdown triggered, disconnect all clients
+			h.logger.Info("shutdown signal triggered, closing room")
 			for client := range h.clients {
 				close(client.send)
 				delete(h.clients, client)
