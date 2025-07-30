@@ -2,6 +2,7 @@ package chat
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -30,6 +31,7 @@ type Client struct {
 	hub  *Room
 	conn *websocket.Conn
 	send chan *Message
+	ctx  context.Context
 }
 
 func NewClient(hub *Room, conn *websocket.Conn) *Client {
@@ -37,20 +39,22 @@ func NewClient(hub *Room, conn *websocket.Conn) *Client {
 		hub:  hub,
 		conn: conn,
 		send: make(chan *Message),
+		ctx:  hub.ctx,
 	}
 }
 
 func (c *Client) Read() {
-	defer func() {
-		c.hub.Unregister <- c
-		c.conn.Close()
-	}()
+	defer c.conn.Close()
+
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(appData string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) {
+				c.hub.Unregister <- c
+			}
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
@@ -67,6 +71,9 @@ func (c *Client) Write() {
 
 	for {
 		select {
+		case <-c.ctx.Done():
+			// Cancellation signal received so we exit the event loop
+			return
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {

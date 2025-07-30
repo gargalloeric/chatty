@@ -15,6 +15,11 @@ func (app *application) chatHandler(w http.ResponseWriter, r *http.Request) {
 	client := chat.NewClient(app.room, conn)
 	app.room.Register <- client
 
-	go client.Read()
-	go client.Write()
+	app.background(func() {
+		client.Read()
+	})
+
+	app.background(func() {
+		client.Write()
+	})
 }
