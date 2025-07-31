@@ -44,7 +44,7 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		room:     chat.NewRoom(context.Background(), logger),
+		room:     chat.NewRoom(context.Background(), logger, "Test Room"),
 	}
 
 	app.background(func() {

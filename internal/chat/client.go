@@ -66,7 +66,7 @@ func (c *Client) Read() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.hub.Broadcast <- &Message{Sender: c.conn.RemoteAddr(), Data: message}
+		c.hub.Broadcast <- &Message{ClientID: c.id, Data: message}
 	}
 }
 
