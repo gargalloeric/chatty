@@ -2,9 +2,10 @@ package chat
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
+	"fmt"
 	"log/slog"
+
+	"github.com/gargalloeric/chatty/internal/identity"
 )
 
 type Room struct {
@@ -37,14 +38,10 @@ type Room struct {
 func NewRoom(ctx context.Context, logger *slog.Logger, name string) *Room {
 	ctx, cancel := context.WithCancel(ctx)
 
-	buffer := make([]byte, 16)
-
-	_, err := rand.Read(buffer)
+	id, err := identity.GenerateRandomID(16)
 	if err != nil {
-		panic("unable to create room")
+		panic("Unable to generate room id")
 	}
-
-	id := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buffer)
 
 	return &Room{
 		id:         id,
@@ -64,7 +61,7 @@ func (r *Room) Run() {
 		select {
 		case <-r.ctx.Done():
 			// Gracefully shutdown triggered, disconnect all clients
-			r.logger.Info("shutdown signal triggered, closing room", "name", r.Name, "id", r.id)
+			r.logger.Info("closing room", "name", r.Name, "id", r.id)
 			for client := range r.clients {
 				close(client.send)
 				delete(r.clients, client)
