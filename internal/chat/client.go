@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gargalloeric/chatty/internal/identity"
 	"github.com/gorilla/websocket"
 )
 
@@ -28,6 +29,7 @@ var (
 )
 
 type Client struct {
+	id   string
 	hub  *Room
 	conn *websocket.Conn
 	send chan *Message
@@ -35,7 +37,13 @@ type Client struct {
 }
 
 func NewClient(hub *Room, conn *websocket.Conn) *Client {
+	id, err := identity.GenerateRandomID(16)
+	if err != nil {
+		panic("unable to generate client id")
+	}
+
 	return &Client{
+		id:   id,
 		hub:  hub,
 		conn: conn,
 		send: make(chan *Message),
@@ -58,7 +66,7 @@ func (c *Client) Read() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.hub.Broadcast <- &Message{Sender: c.conn.RemoteAddr(), Data: message}
+		c.hub.Broadcast <- &Message{ClientID: c.id, Data: message}
 	}
 }
 

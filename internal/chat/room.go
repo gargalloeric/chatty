@@ -2,9 +2,10 @@ package chat
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
+	"fmt"
 	"log/slog"
+
+	"github.com/gargalloeric/chatty/internal/identity"
 )
 
 type Room struct {
@@ -37,14 +38,10 @@ type Room struct {
 func NewRoom(ctx context.Context, logger *slog.Logger, name string) *Room {
 	ctx, cancel := context.WithCancel(ctx)
 
-	buffer := make([]byte, 16)
-
-	_, err := rand.Read(buffer)
+	id, err := identity.GenerateRandomID(16)
 	if err != nil {
-		panic("unable to create room")
+		panic("Unable to generate room id")
 	}
-
-	id := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buffer)
 
 	return &Room{
 		id:         id,
@@ -64,7 +61,7 @@ func (r *Room) Run() {
 		select {
 		case <-r.ctx.Done():
 			// Gracefully shutdown triggered, disconnect all clients
-			r.logger.Info("shutdown signal triggered, closing room", "name", r.Name, "id", r.id)
+			r.logger.Info("closing room", "name", r.Name, "id", r.id)
 			for client := range r.clients {
 				close(client.send)
 				delete(r.clients, client)
@@ -72,6 +69,7 @@ func (r *Room) Run() {
 			return
 		case client := <-r.Register:
 			r.clients[client] = struct{}{}
+			client.send <- &Message{ClientID: "", Data: fmt.Appendf(nil, "Welcome to the room %s", r.Name)}
 		case client := <-r.Unregister:
 			if _, ok := r.clients[client]; ok {
 				delete(r.clients, client)
@@ -80,7 +78,7 @@ func (r *Room) Run() {
 		// If we recieve a message, we have to send the message to every connected client
 		case message := <-r.Broadcast:
 			for client := range r.clients {
-				if message.From != client.conn.RemoteAddr() {
+				if message.ClientID != client.id {
 					select {
 					case client.send <- message:
 					// If we cannot send the message, we assumed that the client is dead or stuck
