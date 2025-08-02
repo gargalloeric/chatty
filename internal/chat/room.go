@@ -69,7 +69,7 @@ func (r *Room) Run() {
 			return
 		case client := <-r.Register:
 			r.clients[client] = struct{}{}
-			client.send <- &Message{ClientID: "", Data: fmt.Appendf(nil, "Welcome to the room %s", r.Name)}
+			client.send <- &Message{From: r.id, Text: fmt.Sprintf("Welcome to the room %s", r.Name)}
 		case client := <-r.Unregister:
 			if _, ok := r.clients[client]; ok {
 				delete(r.clients, client)
@@ -78,7 +78,7 @@ func (r *Room) Run() {
 		// If we recieve a message, we have to send the message to every connected client
 		case message := <-r.Broadcast:
 			for client := range r.clients {
-				if message.ClientID != client.id {
+				if message.From != client.id {
 					select {
 					case client.send <- message:
 					// If we cannot send the message, we assumed that the client is dead or stuck

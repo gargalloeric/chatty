@@ -3,6 +3,8 @@ package chat
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/gargalloeric/chatty/internal/identity"
@@ -29,25 +31,27 @@ var (
 )
 
 type Client struct {
-	id   string
-	hub  *Room
-	conn *websocket.Conn
-	send chan *Message
-	ctx  context.Context
+	id     string
+	room   *Room
+	logger *slog.Logger
+	conn   *websocket.Conn
+	send   chan *Message
+	ctx    context.Context
 }
 
-func NewClient(hub *Room, conn *websocket.Conn) *Client {
+func NewClient(room *Room, conn *websocket.Conn, logger *slog.Logger) *Client {
 	id, err := identity.GenerateRandomID(16)
 	if err != nil {
 		panic("unable to generate client id")
 	}
 
 	return &Client{
-		id:   id,
-		hub:  hub,
-		conn: conn,
-		send: make(chan *Message),
-		ctx:  hub.ctx,
+		id:     id,
+		room:   room,
+		logger: logger,
+		conn:   conn,
+		send:   make(chan *Message),
+		ctx:    room.ctx,
 	}
 }
 
@@ -61,12 +65,12 @@ func (c *Client) Read() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) {
-				c.hub.Unregister <- c
+				c.room.Unregister <- c
 			}
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.hub.Broadcast <- &Message{ClientID: c.id, Data: message}
+		c.room.Broadcast <- &Message{From: c.id, Text: string(message)}
 	}
 }
 
@@ -92,16 +96,31 @@ func (c *Client) Write() {
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				c.logger.Error("unable to get a writer", "error", err)
 				return
 			}
-			w.Write(message.Data)
+
+			data, err := json.Marshal(message)
+			if err != nil {
+				c.logger.Error("json marshal failed", "error", err)
+				w.Close()
+				continue
+			}
+			w.Write(data)
 
 			// Add queued messages to the current websocket message
 			for i := 0; i < len(c.send); i++ {
 				w.Write(newline)
 
 				message := <-c.send
-				w.Write(message.Data)
+
+				data, err = json.Marshal(message)
+				if err != nil {
+					c.logger.Error("json marshal failed", "error", err)
+					w.Close()
+					continue
+				}
+				w.Write(data)
 			}
 
 			if err := w.Close(); err != nil {

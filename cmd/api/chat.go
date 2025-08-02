@@ -12,7 +12,7 @@ func (app *application) chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := chat.NewClient(app.room, conn)
+	client := chat.NewClient(app.room, conn, app.logger)
 	app.room.Register <- client
 
 	app.background(func() {
