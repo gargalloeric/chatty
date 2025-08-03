@@ -20,3 +20,8 @@ confirm:
 .PHONY: run/api
 run/api:
 	@go run ./cmd/api
+
+## run/client: run the cmd/client application
+.PHONY: run/client
+run/client:
+	@go run ./cmd/client
