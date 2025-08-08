@@ -43,7 +43,7 @@ cd chatty
 
 make run/api # start the server
 
-make run/client # (WIP not available yet)
+make run/client # start the client
 ```
 
 ## Want to play around?
