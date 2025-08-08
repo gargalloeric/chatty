@@ -33,17 +33,26 @@ type model struct {
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
 	conn        *websocket.Conn
+	sub         chan []byte
 	cfg         config
 	err         error
 }
 
-func readFromConn(conn *websocket.Conn) tea.Cmd {
+func listenFromConn(conn *websocket.Conn, sub chan<- []byte) tea.Cmd {
 	return func() tea.Msg {
-		_, message, err := conn.ReadMessage()
-		if err != nil {
-			return errorMsg(err)
+		for {
+			_, data, err := conn.ReadMessage()
+			if err != nil {
+				return errorMsg(err)
+			}
+			sub <- data
 		}
+	}
+}
 
+func waitForMessage(sub <-chan []byte) tea.Cmd {
+	return func() tea.Msg {
+		message := <-sub
 		return receivedMsg{Message: string(message)}
 	}
 }
@@ -86,12 +95,17 @@ func initialModel(conn *websocket.Conn) model {
 		messages:    []string{},
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		conn:        conn,
+		sub:         make(chan []byte),
 		err:         nil,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, readFromConn(m.conn))
+	return tea.Batch(
+		textarea.Blink,
+		listenFromConn(m.conn, m.sub),
+		waitForMessage(m.sub),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -130,7 +144,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.textarea.Reset()
 		m.viewport.GotoBottom()
-		return m, tea.Batch(taCmd, vpCmd, readFromConn(m.conn))
+		return m, tea.Batch(taCmd, vpCmd, waitForMessage(m.sub))
 	case errorMsg:
 		m.err = msg
 		return m, nil
