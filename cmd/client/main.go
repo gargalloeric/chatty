@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gargalloeric/chatty/internal/chat"
 	"github.com/gorilla/websocket"
 )
 
@@ -18,9 +19,7 @@ const gap = "\n\n"
 
 type errorMsg error
 
-type receivedMsg struct {
-	Message string
-}
+type receivedMsg chat.Message
 
 type config struct {
 	host string
@@ -33,16 +32,17 @@ type model struct {
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
 	conn        *websocket.Conn
-	sub         chan []byte
+	sub         chan chat.Message
 	cfg         config
 	err         error
 }
 
-func listenFromConn(conn *websocket.Conn, sub chan<- []byte) tea.Cmd {
+func listenFromConn(conn *websocket.Conn, sub chan<- chat.Message) tea.Cmd {
 	return func() tea.Msg {
+		var data chat.Message
 		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
+
+			if err := conn.ReadJSON(&data); err != nil {
 				return errorMsg(err)
 			}
 			sub <- data
@@ -50,10 +50,10 @@ func listenFromConn(conn *websocket.Conn, sub chan<- []byte) tea.Cmd {
 	}
 }
 
-func waitForMessage(sub <-chan []byte) tea.Cmd {
+func waitForMessage(sub <-chan chat.Message) tea.Cmd {
 	return func() tea.Msg {
 		message := <-sub
-		return receivedMsg{Message: string(message)}
+		return receivedMsg(message)
 	}
 }
 
@@ -95,7 +95,7 @@ func initialModel(conn *websocket.Conn) model {
 		messages:    []string{},
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		conn:        conn,
-		sub:         make(chan []byte),
+		sub:         make(chan chat.Message),
 		err:         nil,
 	}
 }
@@ -140,7 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(taCmd, vpCmd, writeToConn(m.conn, message))
 		}
 	case receivedMsg:
-		m.messages = append(m.messages, m.senderStyle.Render("Sender: ")+msg.Message)
+		m.messages = append(m.messages, m.senderStyle.Render(fmt.Sprintf("%s: ", msg.From))+msg.Text)
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.textarea.Reset()
 		m.viewport.GotoBottom()
