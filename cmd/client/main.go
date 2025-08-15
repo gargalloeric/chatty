@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gargalloeric/chatty/internal/chat"
+	"github.com/gargalloeric/chatty/internal/component/view"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,28 +18,19 @@ const gap = "\n\n"
 
 type errorMsg error
 
-type receivedMsg chat.Message
-
 type config struct {
 	host string
 	port string
 }
 
 type model struct {
-	messages []string
-	viewport viewport.Model
+	view     view.Model
 	textarea textarea.Model
 
 	conn *websocket.Conn
 	sub  chan chat.Message
 	cfg  config
 	err  error
-
-	titleStyle  lipgloss.Style
-	lineStyle   lipgloss.Style
-	borderType  lipgloss.Border
-	borderStyle lipgloss.Style
-	senderStyle lipgloss.Style
 }
 
 func initialModel(conn *websocket.Conn) model {
@@ -59,44 +49,17 @@ func initialModel(conn *websocket.Conn) model {
 
 	ta.ShowLineNumbers = false
 
-	vp := viewport.New(30, 5)
-	vp.SetContent("Welcome to the chat room!\nType a message and press Enter to send.")
-
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
-	borderColor := lipgloss.Color("#A259EA")
-
-	lineSyle := lipgloss.NewStyle().Foreground(borderColor)
-
-	borderType := lipgloss.NormalBorder()
-
-	senderStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("5"))
-
-	titleStyle := lipgloss.NewStyle().
-		Background(borderColor).
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Padding(0, 1).
-		Bold(true)
-
-	borderStyle := lipgloss.NewStyle().
-		Border(borderType).
-		BorderForeground(borderColor)
+	view := view.New()
 
 	return model{
-		messages: []string{},
-		viewport: vp,
 		textarea: ta,
+		view:     view,
 
 		conn: conn,
 		sub:  make(chan chat.Message),
 		err:  nil,
-
-		senderStyle: senderStyle,
-		lineStyle:   lineSyle,
-		titleStyle:  titleStyle,
-		borderType:  borderType,
-		borderStyle: borderStyle,
 	}
 }
 
@@ -110,75 +73,42 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		taCmd tea.Cmd
-		vpCmd tea.Cmd
+		taCmd   tea.Cmd
+		viewCmd tea.Cmd
 	)
 
 	m.textarea, taCmd = m.textarea.Update(msg)
-	m.viewport, vpCmd = m.viewport.Update(msg)
+	m.view, viewCmd = m.view.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		borderWidth := m.borderType.GetLeftSize() + m.borderType.GetRightSize()
-		contentWidth := msg.Width - borderWidth
-		m.viewport.Width = contentWidth
-		m.textarea.SetWidth(contentWidth)
-		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
-
-		if len(m.messages) > 0 {
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-		}
-		m.viewport.GotoBottom()
+		m.view.SetWidth(msg.Width)
+		m.textarea.SetWidth(msg.Width)
+		viewHeight := msg.Height - m.textarea.Height() - lipgloss.Height(gap)
+		m.view.SetHeight(viewHeight)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
 			message := m.textarea.Value()
-			m.messages = append(m.messages, m.senderStyle.Render("You: ")+message)
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 			m.textarea.Reset()
-			m.viewport.GotoBottom()
-			return m, tea.Batch(taCmd, vpCmd, writeToConn(m.conn, message))
+			return m, tea.Batch(taCmd, viewCmd, writeToConn(m.conn, message))
 		}
-	case receivedMsg:
-		m.messages = append(m.messages, m.senderStyle.Render("Anonymous: ")+msg.Text)
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-		m.textarea.Reset()
-		m.viewport.GotoBottom()
-		return m, tea.Batch(taCmd, vpCmd, waitForMessage(m.sub))
+	case view.TextMsg:
+		return m, tea.Batch(taCmd, viewCmd, waitForMessage(m.sub))
 	case errorMsg:
 		m.err = msg
 		return m, nil
 	}
 
-	return m, tea.Batch(taCmd, vpCmd)
+	return m, tea.Batch(taCmd, viewCmd)
 }
 
 func (m model) View() string {
-	content := fmt.Sprintf("%s%s%s", m.viewport.View(), gap, m.textarea.View())
+	content := fmt.Sprintf("%s%s%s", m.view.View(), gap, m.textarea.View())
 
-	// Render the content box without the top border
-	box := m.borderStyle.BorderTop(false).Render(content)
-	width := lipgloss.Width(box)
-
-	title := m.titleStyle.Render("Test Room")
-
-	// Build the top border line: ┌ + title + repeated dashes + ┐
-	leftCorner := m.lineStyle.Render(m.borderType.TopLeft)
-	rightCorner := m.lineStyle.Render(m.borderType.TopRight)
-	fillWidth := width - lipgloss.Width(title) - lipgloss.Width(leftCorner) - lipgloss.Width(rightCorner)
-	fill := m.lineStyle.Render(strings.Repeat(m.borderType.Top, fillWidth))
-	topBorderLine := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		leftCorner,
-		title,
-		fill,
-		rightCorner,
-	)
-
-	// Join the top border and box
-	return lipgloss.JoinVertical(lipgloss.Left, topBorderLine, box)
+	return content
 }
 
 func main() {

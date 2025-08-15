@@ -3,13 +3,14 @@ package main
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gargalloeric/chatty/internal/chat"
+	"github.com/gargalloeric/chatty/internal/component/view"
 	"github.com/gorilla/websocket"
 )
 
 func waitForMessage(sub <-chan chat.Message) tea.Cmd {
 	return func() tea.Msg {
 		message := <-sub
-		return receivedMsg(message)
+		return view.TextMsg{Text: message.Text, Sender: "Anonymous"}
 	}
 }
 
@@ -20,7 +21,7 @@ func writeToConn(conn *websocket.Conn, message string) tea.Cmd {
 			return errorMsg(err)
 		}
 
-		return nil
+		return view.TextMsg{Text: message, Sender: "You"}
 	}
 }
 
