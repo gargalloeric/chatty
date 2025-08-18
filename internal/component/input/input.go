@@ -8,6 +8,10 @@ import (
 
 type Model struct {
 	textarea textarea.Model
+
+	borderType  lipgloss.Border
+	borderStyle lipgloss.Style
+	lineStyle   lipgloss.Style
 }
 
 func New() Model {
@@ -26,8 +30,19 @@ func New() Model {
 	ta.ShowLineNumbers = false
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
+	borderColor := lipgloss.Color("#A259EA")
+	borderType := lipgloss.NormalBorder()
+	borderStyle := lipgloss.NewStyle().
+		Border(borderType).
+		BorderForeground(borderColor)
+	lineStyle := lipgloss.NewStyle().
+		Foreground(borderColor)
+
 	return Model{
-		textarea: ta,
+		textarea:    ta,
+		borderType:  borderType,
+		borderStyle: borderStyle,
+		lineStyle:   lineStyle,
 	}
 }
 
@@ -44,7 +59,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	return m.textarea.View()
+	content := m.textarea.View()
+
+	return m.borderStyle.Render(content)
 }
 
 func (m *Model) Reset() {
@@ -56,7 +73,8 @@ func (m *Model) Value() string {
 }
 
 func (m *Model) SetWidth(w int) {
-	m.textarea.SetWidth(w)
+	borderWidth := m.borderType.GetLeftSize() + m.borderType.GetRightSize()
+	m.textarea.SetWidth(w - borderWidth)
 }
 
 func (m *Model) Height() int {

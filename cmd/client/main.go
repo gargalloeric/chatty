@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const gap = "\n\n"
+const gap = "\n"
 
 type errorMsg error
 
