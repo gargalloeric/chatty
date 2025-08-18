@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gargalloeric/chatty/internal/chat"
+	"github.com/gargalloeric/chatty/internal/component/input"
 	"github.com/gargalloeric/chatty/internal/component/view"
 	"github.com/gorilla/websocket"
 )
@@ -24,8 +25,8 @@ type config struct {
 }
 
 type model struct {
-	view     view.Model
-	textarea textarea.Model
+	view  view.Model
+	input input.Model
 
 	conn *websocket.Conn
 	sub  chan chat.Message
@@ -34,28 +35,13 @@ type model struct {
 }
 
 func initialModel(conn *websocket.Conn) model {
-	ta := textarea.New()
-
-	ta.Placeholder = "Send message..."
-	ta.Focus()
-
-	ta.Prompt = "> "
-	ta.CharLimit = 280
-
-	ta.SetWidth(30)
-	ta.SetHeight(1)
-
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-
-	ta.ShowLineNumbers = false
-
-	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	view := view.New()
+	input := input.New()
 
 	return model{
-		textarea: ta,
-		view:     view,
+		input: input,
+		view:  view,
 
 		conn: conn,
 		sub:  make(chan chat.Message),
@@ -73,40 +59,40 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		taCmd   tea.Cmd
+		input   tea.Cmd
 		viewCmd tea.Cmd
 	)
 
-	m.textarea, taCmd = m.textarea.Update(msg)
+	m.input, input = m.input.Update(msg)
 	m.view, viewCmd = m.view.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.view.SetWidth(msg.Width)
-		m.textarea.SetWidth(msg.Width)
-		viewHeight := msg.Height - m.textarea.Height() - lipgloss.Height(gap)
+		m.input.SetWidth(msg.Width)
+		viewHeight := msg.Height - m.input.Height() - lipgloss.Height(gap)
 		m.view.SetHeight(viewHeight)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			message := m.textarea.Value()
-			m.textarea.Reset()
-			return m, tea.Batch(taCmd, viewCmd, writeToConn(m.conn, message))
+			message := m.input.Value()
+			m.input.Reset()
+			return m, tea.Batch(input, viewCmd, writeToConn(m.conn, message))
 		}
 	case view.TextMsg:
-		return m, tea.Batch(taCmd, viewCmd, waitForMessage(m.sub))
+		return m, tea.Batch(input, viewCmd, waitForMessage(m.sub))
 	case errorMsg:
 		m.err = msg
 		return m, nil
 	}
 
-	return m, tea.Batch(taCmd, viewCmd)
+	return m, tea.Batch(input, viewCmd)
 }
 
 func (m model) View() string {
-	content := fmt.Sprintf("%s%s%s", m.view.View(), gap, m.textarea.View())
+	content := fmt.Sprintf("%s%s%s", m.view.View(), gap, m.input.View())
 
 	return content
 }
