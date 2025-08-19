@@ -59,11 +59,11 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		input   tea.Cmd
-		viewCmd tea.Cmd
+		inputCmd tea.Cmd
+		viewCmd  tea.Cmd
 	)
 
-	m.input, input = m.input.Update(msg)
+	m.input, inputCmd = m.input.Update(msg)
 	m.view, viewCmd = m.view.Update(msg)
 
 	switch msg := msg.(type) {
@@ -79,16 +79,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			message := m.input.Value()
 			m.input.Reset()
-			return m, tea.Batch(input, viewCmd, writeToConn(m.conn, message))
+			return m, tea.Batch(inputCmd, viewCmd, writeToConn(m.conn, message))
 		}
 	case view.TextMsg:
-		return m, tea.Batch(input, viewCmd, waitForMessage(m.sub))
+		return m, tea.Batch(inputCmd, viewCmd, waitForMessage(m.sub))
 	case errorMsg:
 		m.err = msg
 		return m, nil
 	}
 
-	return m, tea.Batch(input, viewCmd)
+	return m, tea.Batch(inputCmd, viewCmd)
 }
 
 func (m model) View() string {
