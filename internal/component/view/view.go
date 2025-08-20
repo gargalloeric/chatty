@@ -17,6 +17,11 @@ type TextMsg struct {
 	Text   string
 }
 
+type MetadataMsg struct {
+	Room      string
+	UserCount int
+}
+
 type Model struct {
 	messages []string
 	viewport viewport.Model

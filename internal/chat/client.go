@@ -70,7 +70,10 @@ func (c *Client) Read() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.room.Broadcast <- &Message{From: c.id, Text: string(message)}
+		text := &Text{From: c.id, Content: string(message)}
+		// TODO: Handle json unmarshaling fail
+		payload, _ := json.Marshal(&text)
+		c.room.Broadcast <- &Message{Type: TextType, Payload: payload}
 	}
 }
 

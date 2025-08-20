@@ -81,14 +81,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input.Reset()
 			return m, tea.Batch(inputCmd, viewCmd, writeToConn(m.conn, message))
 		}
-	case view.TextMsg:
-		return m, tea.Batch(inputCmd, viewCmd, waitForMessage(m.sub))
 	case errorMsg:
 		m.err = msg
 		return m, nil
 	}
 
-	return m, tea.Batch(inputCmd, viewCmd)
+	return m, tea.Batch(inputCmd, viewCmd, waitForMessage(m.sub))
 }
 
 func (m model) View() string {
