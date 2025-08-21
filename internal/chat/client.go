@@ -64,9 +64,7 @@ func (c *Client) Read() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) {
-				c.room.Unregister <- c
-			}
+			c.room.Unregister <- c
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
