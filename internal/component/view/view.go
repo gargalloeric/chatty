@@ -26,6 +26,9 @@ type Model struct {
 	messages []string
 	viewport viewport.Model
 
+	roomTitle string
+	userCount int
+
 	borderType  lipgloss.Border
 	borderStyle lipgloss.Style
 	titleStyle  lipgloss.Style
@@ -74,6 +77,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.messages = append(m.messages, senderStyle.Render(fmt.Sprintf("%s: ", msg.Sender))+msg.Text)
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.viewport.GotoBottom()
+	case MetadataMsg:
+		m.roomTitle = msg.Room
+		m.userCount = msg.UserCount
 	}
 
 	return m, vpCmd
@@ -86,17 +92,22 @@ func (m Model) View() string {
 	box := m.borderStyle.BorderTop(false).Render(content)
 	width := lipgloss.Width(box)
 
-	title := m.titleStyle.Render("Test Room")
+	title := m.titleStyle.Render(m.roomTitle)
+	userCount := m.titleStyle.Render(fmt.Sprintf("Users %d", m.userCount))
+	separator := m.lineStyle.Render(m.borderType.Top)
 
-	// Build the top border line: ┌ + title + repeated dashes + ┐
+	// Build the top border line: ┌ + title + dash + user count + repeated dashes + ┐
 	leftCorner := m.lineStyle.Render(m.borderType.TopLeft)
 	rightCorner := m.lineStyle.Render(m.borderType.TopRight)
-	fillWidth := width - lipgloss.Width(title) - lipgloss.Width(leftCorner) - lipgloss.Width(rightCorner)
+	elementsWidth := lipgloss.Width(title) + lipgloss.Width(separator) + lipgloss.Width(userCount) + lipgloss.Width(leftCorner) + lipgloss.Width(rightCorner)
+	fillWidth := width - elementsWidth
 	fill := m.lineStyle.Render(strings.Repeat(m.borderType.Top, fillWidth))
 	topBorderLine := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		leftCorner,
 		title,
+		separator,
+		userCount,
 		fill,
 		rightCorner,
 	)
