@@ -70,12 +70,13 @@ func (r *Room) Run() {
 		case client := <-r.Register:
 			r.clients[client] = struct{}{}
 			metadata := &Metadata{Room: r.Name, UserCount: len(r.clients)}
-			payload, _ := json.Marshal(&metadata)
-			client.send <- &Message{Type: MetadataType, Payload: payload}
+			r.updateMetadata(metadata)
 		case client := <-r.Unregister:
 			if _, ok := r.clients[client]; ok {
 				delete(r.clients, client)
 				close(client.send)
+				metadata := &Metadata{Room: r.Name, UserCount: len(r.clients)}
+				r.updateMetadata(metadata)
 			}
 		// If we recieve a message, we have to send the message to every connected client
 		case message := <-r.Broadcast:
@@ -97,6 +98,17 @@ func (r *Room) Run() {
 
 		}
 	}
+}
+
+func (r *Room) updateMetadata(metadata *Metadata) {
+	go func() {
+		payload, err := json.Marshal(&metadata)
+		if err != nil {
+			r.logger.Error("Error marshaling metadata update", "error", err)
+			return
+		}
+		r.Broadcast <- &Message{Type: MetadataType, Payload: payload}
+	}()
 }
 
 func (r *Room) Shutdown() {
