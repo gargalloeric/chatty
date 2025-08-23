@@ -2,7 +2,7 @@ package chat
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log/slog"
 
 	"github.com/gargalloeric/chatty/internal/identity"
@@ -69,16 +69,23 @@ func (r *Room) Run() {
 			return
 		case client := <-r.Register:
 			r.clients[client] = struct{}{}
-			client.send <- &Message{From: r.id, Text: fmt.Sprintf("Welcome to the room %s", r.Name)}
+			metadata := &Metadata{Room: r.Name, UserCount: len(r.clients)}
+			r.updateMetadata(metadata)
 		case client := <-r.Unregister:
 			if _, ok := r.clients[client]; ok {
 				delete(r.clients, client)
 				close(client.send)
+				metadata := &Metadata{Room: r.Name, UserCount: len(r.clients)}
+				r.updateMetadata(metadata)
 			}
 		// If we recieve a message, we have to send the message to every connected client
 		case message := <-r.Broadcast:
+			// Assume that the message is a text message.
+			// TODO: Handle json unmarshaling fail
+			var payload Text
+			json.Unmarshal(message.Payload, &payload)
 			for client := range r.clients {
-				if message.From != client.id {
+				if payload.From != client.id {
 					select {
 					case client.send <- message:
 					// If we cannot send the message, we assumed that the client is dead or stuck
@@ -91,6 +98,17 @@ func (r *Room) Run() {
 
 		}
 	}
+}
+
+func (r *Room) updateMetadata(metadata *Metadata) {
+	go func() {
+		payload, err := json.Marshal(&metadata)
+		if err != nil {
+			r.logger.Error("Error marshaling metadata update", "error", err)
+			return
+		}
+		r.Broadcast <- &Message{Type: MetadataType, Payload: payload}
+	}()
 }
 
 func (r *Room) Shutdown() {
