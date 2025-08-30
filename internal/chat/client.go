@@ -56,7 +56,13 @@ func NewClient(room *Room, conn *websocket.Conn, logger *slog.Logger) *Client {
 }
 
 func (c *Client) Read() {
-	defer c.conn.Close()
+	defer func() {
+		if c.room.Listening.Load() {
+			c.room.Unregister <- c
+		}
+
+		c.conn.Close()
+	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -64,7 +70,6 @@ func (c *Client) Read() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			c.room.Unregister <- c
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))

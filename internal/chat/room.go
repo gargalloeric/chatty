@@ -68,6 +68,8 @@ func (r *Room) Run() {
 			// Gracefully shutdown triggered, disconnect all clients
 			r.logger.Info("closing room", "name", r.Name, "id", r.id)
 			r.Listening.Swap(false)
+			close(r.Register)
+			close(r.Unregister)
 			for client := range r.clients {
 				close(client.send)
 				delete(r.clients, client)
