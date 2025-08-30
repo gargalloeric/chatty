@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/gargalloeric/chatty/internal/identity"
 )
@@ -28,6 +29,9 @@ type Room struct {
 
 	// Clients leaving the rooom
 	Unregister chan *Client
+
+	// Listening allows clients to check whether the room is accepting messages or not.
+	Listening atomic.Bool
 
 	ctx context.Context
 
@@ -57,11 +61,15 @@ func NewRoom(ctx context.Context, logger *slog.Logger, name string) *Room {
 }
 
 func (r *Room) Run() {
+	r.Listening.Swap(true)
 	for {
 		select {
 		case <-r.ctx.Done():
 			// Gracefully shutdown triggered, disconnect all clients
 			r.logger.Info("closing room", "name", r.Name, "id", r.id)
+			r.Listening.Swap(false)
+			close(r.Register)
+			close(r.Unregister)
 			for client := range r.clients {
 				close(client.send)
 				delete(r.clients, client)

@@ -34,14 +34,14 @@ func (app *application) serve() error {
 
 		app.logger.Info("shutting down server", "signal", s.String())
 
-		app.room.Shutdown()
-
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		if err := server.Shutdown(ctx); err != nil {
 			shutdownErrors <- err
 		}
+
+		app.room.Shutdown()
 
 		app.wg.Wait()
 		shutdownErrors <- nil
