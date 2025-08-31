@@ -14,7 +14,11 @@ func (app *application) routes() http.Handler {
 
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
 
-	mux.Get("/v1/ws", app.chatHandler)
+	mux.Route("/v1/rooms", func(r chi.Router) {
+		r.Get("/", app.listRoomHandler)
+		r.Post("/", app.createRoomHandler)
+		r.Get("/{roomID}", app.connectToRoomHandler)
+	})
 
 	return mux
 }
