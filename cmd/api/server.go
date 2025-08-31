@@ -41,7 +41,9 @@ func (app *application) serve() error {
 			shutdownErrors <- err
 		}
 
-		app.room.Shutdown()
+		for _, room := range app.rooms {
+			room.Shutdown()
+		}
 
 		app.wg.Wait()
 		shutdownErrors <- nil

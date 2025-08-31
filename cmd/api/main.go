@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log/slog"
 	"os"
@@ -21,7 +20,8 @@ type application struct {
 	logger   *slog.Logger
 	config   config
 	upgrader websocket.Upgrader
-	room     *chat.Room
+	mx       sync.RWMutex
+	rooms    map[string]*chat.Room
 	wg       sync.WaitGroup
 }
 
@@ -44,12 +44,8 @@ func main() {
 		logger:   logger,
 		config:   conf,
 		upgrader: upgrader,
-		room:     chat.NewRoom(context.Background(), logger, "Test Room"),
+		rooms:    make(map[string]*chat.Room),
 	}
-
-	app.background(func() {
-		app.room.Run()
-	})
 
 	if err := app.serve(); err != nil {
 		logger.Error(err.Error())
